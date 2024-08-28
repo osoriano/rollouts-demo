@@ -4,11 +4,7 @@ COPY . .
 RUN make
 
 FROM scratch
-COPY *.html ./
-COPY *.png ./
-COPY *.js ./
-COPY *.ico ./
-COPY *.css ./
+COPY static/* ./
 COPY --from=build /go/src/app/rollouts-demo /rollouts-demo
 
 ARG COLOR
