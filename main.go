@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -64,15 +64,11 @@ func main() {
 		listenAddr       string
 		terminationDelay int
 		numCPUBurn       string
-		tls              bool
 	)
 	flag.StringVar(&listenAddr, "listen-addr", ":8080", "server listen address")
 	flag.IntVar(&terminationDelay, "termination-delay", defaultTerminationDelay, "termination delay in seconds")
 	flag.StringVar(&numCPUBurn, "cpu-burn", "", "burn specified number of cpus (number or 'all')")
-	flag.BoolVar(&tls, "tls", false, "Enable TLS (with self-signed certificate)")
 	flag.Parse()
-
-	rand.Seed(time.Now().UnixNano())
 
 	router := http.NewServeMux()
 	router.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("./"))))
@@ -81,13 +77,6 @@ func main() {
 	server := &http.Server{
 		Addr:    listenAddr,
 		Handler: router,
-	}
-	if tls {
-		tlsConfig, err := CreateServerTLSConfig("", "", []string{"localhost", "rollouts-demo"})
-		if err != nil {
-			log.Fatalf("Could not generate TLS config: %v\n", err)
-		}
-		server.TLSConfig = tlsConfig
 	}
 
 	done := make(chan bool)
@@ -116,13 +105,7 @@ func main() {
 
 	cpuBurn(done, numCPUBurn)
 	log.Printf("Started server on %s", listenAddr)
-	var err error
-	if tls {
-		err = server.ListenAndServeTLS("", "")
-	} else {
-		err = server.ListenAndServe()
-	}
-	if err != nil && err != http.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Could not listen on %s: %v\n", listenAddr, err)
 	}
 
@@ -137,7 +120,7 @@ type colorParameters struct {
 }
 
 func getColor(w http.ResponseWriter, r *http.Request) {
-	requestBody, err := ioutil.ReadAll(r.Body)
+	requestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(500)
 		log.Println(err.Error())
