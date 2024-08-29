@@ -1,7 +1,10 @@
 FROM golang:1.23 as build
 WORKDIR /go/src/app
-COPY . .
-RUN make
+COPY main.go .
+RUN go mod init github.com/osoriano/rollouts-demo && \
+  [ -z "$(go fmt)" ] && \
+  go vet && \
+  CGO_ENABLED=0 go build
 
 FROM scratch
 COPY static/* ./
