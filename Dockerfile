@@ -10,11 +10,4 @@ FROM scratch
 COPY static/* ./
 COPY --from=build /go/src/app/rollouts-demo /rollouts-demo
 
-ARG COLOR
-ENV COLOR=${COLOR}
-ARG ERROR_RATE
-ENV ERROR_RATE=${ERROR_RATE}
-ARG LATENCY
-ENV LATENCY=${LATENCY}
-
 ENTRYPOINT [ "/rollouts-demo" ]

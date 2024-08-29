@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -25,49 +23,23 @@ const (
 	// directed to terminated pods, which otherwise would cause timeout errors and/or request delays.
 	// See: https://github.com/kubernetes/ingress-nginx/issues/3335#issuecomment-434970950
 	defaultTerminationDelay = 10
-)
 
-var (
-	color  = os.Getenv("COLOR")
-	colors = []string{
-		"red",
-		"orange",
-		"yellow",
-		"green",
-		"blue",
-		"purple",
-	}
-	envLatency   float64
-	envErrorRate int
+	// Choose from one of the following colors:
+	// color = "red"
+	// color = "orange"
+	// color = "yellow"
+	// color = "green"
+	color = "blue"
+	// color = "purple"
 )
-
-func init() {
-	var err error
-	envLatencyStr := os.Getenv("LATENCY")
-	if envLatencyStr != "" {
-		envLatency, err = strconv.ParseFloat(envLatencyStr, 64)
-		if err != nil {
-			panic(fmt.Sprintf("failed to parse LATENCY: %s", envLatencyStr))
-		}
-	}
-	envErrorRateStr := os.Getenv("ERROR_RATE")
-	if envErrorRateStr != "" {
-		envErrorRate, err = strconv.Atoi(envErrorRateStr)
-		if err != nil {
-			panic(fmt.Sprintf("failed to parse ERROR_RATE: %s", envErrorRateStr))
-		}
-	}
-}
 
 func main() {
 	var (
 		listenAddr       string
 		terminationDelay int
-		numCPUBurn       string
 	)
 	flag.StringVar(&listenAddr, "listen-addr", ":8080", "server listen address")
 	flag.IntVar(&terminationDelay, "termination-delay", defaultTerminationDelay, "termination delay in seconds")
-	flag.StringVar(&numCPUBurn, "cpu-burn", "", "burn specified number of cpus (number or 'all')")
 	flag.Parse()
 
 	router := http.NewServeMux()
@@ -103,7 +75,6 @@ func main() {
 		close(done)
 	}()
 
-	cpuBurn(done, numCPUBurn)
 	log.Printf("Started server on %s", listenAddr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Could not listen on %s: %v\n", listenAddr, err)
@@ -139,15 +110,10 @@ func getColor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	colorToReturn := randomColor()
-	if color != "" {
-		colorToReturn = color
-	}
-
 	var colorParams colorParameters
 	for i := range request {
 		cp := request[i]
-		if cp.Color == colorToReturn {
+		if cp.Color == color {
 			colorParams = cp
 		}
 	}
@@ -156,8 +122,6 @@ func getColor(w http.ResponseWriter, r *http.Request) {
 	var delayLengthStr string
 	if colorParams.DelayLength > 0 {
 		delayLength = colorParams.DelayLength
-	} else if envLatency > 0 {
-		delayLength = envLatency
 	}
 	if delayLength > 0 {
 		delayLengthStr = fmt.Sprintf(" (%fs)", delayLength)
@@ -167,11 +131,9 @@ func getColor(w http.ResponseWriter, r *http.Request) {
 	statusCode := http.StatusOK
 	if colorParams.Return500Probability != nil && *colorParams.Return500Probability > 0 && *colorParams.Return500Probability >= rand.Intn(100) {
 		statusCode = http.StatusInternalServerError
-	} else if envErrorRate > 0 && rand.Intn(100) >= envErrorRate {
-		statusCode = http.StatusInternalServerError
 	}
-	printColor(colorToReturn, w, statusCode)
-	log.Printf("%d - %s%s\n", statusCode, colorToReturn, delayLengthStr)
+	printColor(color, w, statusCode)
+	log.Printf("%d - %s%s\n", statusCode, color, delayLengthStr)
 }
 
 func printColor(colorToPrint string, w http.ResponseWriter, statusCode int) {
@@ -179,40 +141,4 @@ func printColor(colorToPrint string, w http.ResponseWriter, statusCode int) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(statusCode)
 	fmt.Fprintf(w, "\"%s\"", colorToPrint)
-}
-
-func randomColor() string {
-	return colors[rand.Int()%len(colors)]
-}
-
-func cpuBurn(done <-chan bool, numCPUBurn string) {
-	if numCPUBurn == "" {
-		return
-	}
-	var numCPU int
-	if numCPUBurn == "all" {
-		numCPU = runtime.NumCPU()
-	} else {
-		num, err := strconv.Atoi(numCPUBurn)
-		if err != nil {
-			log.Fatal(err)
-		}
-		numCPU = num
-	}
-	log.Printf("Burning %d CPUs", numCPU)
-	noop := func() {}
-	for i := 0; i < numCPU; i++ {
-		go func(cpu int) {
-			log.Printf("Burning CPU #%d", cpu)
-			for {
-				select {
-				case <-done:
-					log.Printf("Stopped CPU burn #%d", cpu)
-					return
-				default:
-					noop()
-				}
-			}
-		}(i)
-	}
 }
