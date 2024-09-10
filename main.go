@@ -29,8 +29,9 @@ const (
 	// color = "orange"
 	// color = "yellow"
 	// color = "green"
-	color = "blue"
-	// color = "purple"
+	// color = "blue"
+	// this is a test pr2
+	color = "purple"
 )
 
 func main() {
