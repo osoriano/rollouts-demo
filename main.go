@@ -29,8 +29,8 @@ const (
 	// color = "orange"
 	// color = "yellow"
 	// color = "green"
-	color = "blue"
-	// color = "purple"
+	// color = "blue"
+	color = "purple"
 )
 
 func main() {
