@@ -25,12 +25,12 @@ const (
 	defaultTerminationDelay = 10
 
 	// Choose from one of the following colors:
-	// color = "red"
+	color = "red"
 	// color = "orange"
 	// color = "yellow"
 	// color = "green"
 	// color = "blue"
-	color = "purple"
+	// color = "purple"
 )
 
 func main() {
